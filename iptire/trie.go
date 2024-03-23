@@ -28,6 +28,11 @@ type Trie struct {
 	value   any
 }
 
+type Entry struct {
+	Network netip.Prefix
+	Value   any
+}
+
 // NewTrie creates a new Trie.
 func NewTrie() *Trie {
 	return &Trie{
@@ -55,14 +60,14 @@ func (p *Trie) Remove(network netip.Prefix) any {
 }
 
 // Find returns the value from the smallest prefix containing the given address.
-func (p *Trie) Find(ip netip.Addr) any {
+func (p *Trie) Find(ip netip.Addr) *Entry {
 	ip = normalizeAddr(ip)
 	return p.find(ip)
 }
 
 // ContainingNetworks returns the list of RangerEntry(s) the given ip is
 // contained in in ascending prefix order.
-func (p *Trie) ContainingNetworks(ip netip.Addr) []netip.Prefix {
+func (p *Trie) ContainingNetworks(ip netip.Addr) []*Entry {
 	ip = normalizeAddr(ip)
 	return p.containingNetworks(ip)
 }
@@ -70,7 +75,7 @@ func (p *Trie) ContainingNetworks(ip netip.Addr) []netip.Prefix {
 // CoveredNetworks returns the list of RangerEntry(s) the given ipnet
 // covers.  That is, the networks that are completely subsumed by the
 // specified network.
-func (p *Trie) CoveredNetworks(network netip.Prefix) []netip.Prefix {
+func (p *Trie) CoveredNetworks(network netip.Prefix) []*Entry {
 	network = normalizePrefix(network)
 	return p.coveredNetworks(network)
 }
@@ -95,12 +100,12 @@ func (p *Trie) String() string {
 		p.value != nil, strings.Join(children, ""))
 }
 
-func (p *Trie) find(number netip.Addr) any {
+func (p *Trie) find(number netip.Addr) *Entry {
 	if !netContains(p.network, number) {
 		return nil
 	}
 	if p.value != nil {
-		return p.value
+		return &Entry{p.network, p.value}
 	}
 	if p.network.Bits() == 128 {
 		return nil
@@ -113,13 +118,13 @@ func (p *Trie) find(number netip.Addr) any {
 	return nil
 }
 
-func (p *Trie) containingNetworks(addr netip.Addr) []netip.Prefix {
-	var results []netip.Prefix
+func (p *Trie) containingNetworks(addr netip.Addr) []*Entry {
+	var results []*Entry
 	if !p.network.Contains(addr) {
 		return results
 	}
 	if p.value != nil {
-		results = []netip.Prefix{p.network}
+		results = []*Entry{{p.network, p.value}}
 	}
 	if p.network.Bits() == 128 {
 		return results
@@ -139,8 +144,8 @@ func (p *Trie) containingNetworks(addr netip.Addr) []netip.Prefix {
 	return results
 }
 
-func (p *Trie) coveredNetworks(network netip.Prefix) []netip.Prefix {
-	var results []netip.Prefix
+func (p *Trie) coveredNetworks(network netip.Prefix) []*Entry {
+	var results []*Entry
 	if network.Bits() <= p.network.Bits() && network.Contains(p.network.Addr()) {
 		for entry := range p.walkDepth() {
 			results = append(results, entry)
@@ -313,13 +318,13 @@ func (p *Trie) level() int {
 }
 
 // walkDepth walks the trie in depth order, for unit testing.
-func (p *Trie) walkDepth() <-chan netip.Prefix {
-	entries := make(chan netip.Prefix)
+func (p *Trie) walkDepth() <-chan *Entry {
+	entries := make(chan *Entry)
 	go func() {
 		if p.value != nil {
-			entries <- p.network
+			entries <- &Entry{p.network, p.value}
 		}
-		childEntriesList := []<-chan netip.Prefix{}
+		childEntriesList := []<-chan *Entry{}
 		for _, trie := range p.children {
 			if trie == nil {
 				continue

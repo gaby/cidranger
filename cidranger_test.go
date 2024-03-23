@@ -139,7 +139,7 @@ func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGen
 		expSet, err := builderExpected.IPSet()
 
 		for _, g := range got {
-			builderGot.AddPrefix(g)
+			builderGot.AddPrefix(g.Network)
 		}
 		gotSet, err := builderGot.IPSet()
 
@@ -197,7 +197,7 @@ func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkG
 		expSet, err := builderExpected.IPSet()
 
 		for _, g := range got {
-			builderGot.AddPrefix(g)
+			builderGot.AddPrefix(g.Network)
 		}
 		gotSet, err := builderGot.IPSet()
 
