@@ -75,12 +75,8 @@ func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 			t.Errorf("netip addr convert fail")
 			continue
 		}
-		got := trie.Find(addr)
-		var gotvalue bool
-		if got != nil {
-			gotvalue = true
-		}
-		assert.Equal(t, expected, gotvalue)
+		got := trie.Contains(addr)
+		assert.Equal(t, expected, got)
 	}
 }
 
@@ -315,7 +311,7 @@ func benchmarkNewPathprefixTrie(b *testing.B, net1 string) {
 func benchmarkTrieContainsUsingAWSRanges(tb testing.TB, nn netip.Addr, trie *iptrie.Trie) {
 	configureTrieWithAWSRanges(tb, trie)
 	for n := 0; n < tb.(*testing.B).N; n++ {
-		trie.Find(nn)
+		trie.Contains(nn)
 	}
 }
 

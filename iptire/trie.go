@@ -59,8 +59,7 @@ func (p *Trie) Remove(network netip.Prefix) any {
 	return p.remove(network)
 }
 
-// Find returns the value from the smallest prefix containing the given address.
-func (p *Trie) Find(ip netip.Addr) *Entry {
+func (p *Trie) Contains(ip netip.Addr) bool {
 	ip = normalizeAddr(ip)
 	return p.find(ip)
 }
@@ -100,22 +99,22 @@ func (p *Trie) String() string {
 		p.value != nil, strings.Join(children, ""))
 }
 
-func (p *Trie) find(number netip.Addr) *Entry {
+func (p *Trie) find(number netip.Addr) bool {
 	if !netContains(p.network, number) {
-		return nil
+		return false
 	}
 	if p.value != nil {
-		return &Entry{p.network, p.value}
+		return true
 	}
 	if p.network.Bits() == 128 {
-		return nil
+		return false
 	}
 	bit := p.discriminatorBitFromIP(number)
 	child := p.children[bit]
 	if child != nil {
 		return child.find(number)
 	}
-	return nil
+	return false
 }
 
 func (p *Trie) containingNetworks(addr netip.Addr) []*Entry {
