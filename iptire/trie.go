@@ -1,6 +1,13 @@
 // Package iptrie is a fork of github.com/yl2chen/cidranger. This fork massively strips down and refactors the code for
 // increased performance, resulting in 20x faster load time, and 1.5x faster lookups.
 
+// most code is from https://gist.github.com/phemmer/6231b12d5207ea93a1690ddc44a2c811
+// several modification as following:
+// 1. add a Contains interface to match original contains interface
+// 2. fix Find to return most specific entry instead of first match entry
+// 3. ContainingNetworks and CoveredNetworks will return entries instead of purely networks, I believe this is the whole point of this lib
+// 4. as we start return entries, now whole code base to use generic, so we don't need to pay tax in runtime as type assertion
+
 package iptrie
 
 import (
