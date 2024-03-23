@@ -20,53 +20,59 @@ import (
 //
 // Path compression compresses a string of node with only 1 child into a single
 // node, decrease the amount of lookups necessary during containment tests.
-type Trie struct {
-	parent   *Trie
-	children [2]*Trie
+type Trie[T any] struct {
+	parent   *Trie[T]
+	children [2]*Trie[T]
 
 	network netip.Prefix
-	value   any
+	value   *T
 }
 
-type Entry struct {
+type Entry[T any] struct {
 	Network netip.Prefix
-	Value   any
+	Value   *T
 }
 
 // NewTrie creates a new Trie.
-func NewTrie() *Trie {
-	return &Trie{
+func NewTrie[T any]() *Trie[T] {
+	return &Trie[T]{
 		network: netip.PrefixFrom(netip.IPv6Unspecified(), 0),
 	}
 }
 
-func newSubTree(network netip.Prefix, value any) *Trie {
-	return &Trie{
+func newSubTree[T any](network netip.Prefix, value *T) *Trie[T] {
+	return &Trie[T]{
 		network: network,
 		value:   value,
 	}
 }
 
 // Insert inserts a RangerEntry into prefix trie.
-func (p *Trie) Insert(network netip.Prefix, value any) {
+func (p *Trie[T]) Insert(network netip.Prefix, value *T) {
 	network = normalizePrefix(network)
 	p.insert(network, value)
 }
 
 // Remove removes RangerEntry identified by given network from trie.
-func (p *Trie) Remove(network netip.Prefix) any {
+func (p *Trie[T]) Remove(network netip.Prefix) *T {
 	network = normalizePrefix(network)
 	return p.remove(network)
 }
 
-func (p *Trie) Contains(ip netip.Addr) bool {
+// Find returns the value from the smallest prefix containing the given address.
+func (p *Trie[T]) Find(ip netip.Addr) *Entry[T] {
 	ip = normalizeAddr(ip)
 	return p.find(ip)
 }
 
+func (p *Trie[T]) Contains(ip netip.Addr) bool {
+	ip = normalizeAddr(ip)
+	return p.contains(ip)
+}
+
 // ContainingNetworks returns the list of RangerEntry(s) the given ip is
 // contained in in ascending prefix order.
-func (p *Trie) ContainingNetworks(ip netip.Addr) []*Entry {
+func (p *Trie[T]) ContainingNetworks(ip netip.Addr) []*Entry[T] {
 	ip = normalizeAddr(ip)
 	return p.containingNetworks(ip)
 }
@@ -74,18 +80,18 @@ func (p *Trie) ContainingNetworks(ip netip.Addr) []*Entry {
 // CoveredNetworks returns the list of RangerEntry(s) the given ipnet
 // covers.  That is, the networks that are completely subsumed by the
 // specified network.
-func (p *Trie) CoveredNetworks(network netip.Prefix) []*Entry {
+func (p *Trie[T]) CoveredNetworks(network netip.Prefix) []*Entry[T] {
 	network = normalizePrefix(network)
 	return p.coveredNetworks(network)
 }
 
-func (p *Trie) Network() netip.Prefix {
+func (p *Trie[T]) Network() netip.Prefix {
 	return p.network
 }
 
 // String returns string representation of trie, mainly for visualization and
 // debugging.
-func (p *Trie) String() string {
+func (p *Trie[T]) String() string {
 	children := []string{}
 	padding := strings.Repeat("| ", p.level()+1)
 	for bit, child := range p.children {
@@ -99,31 +105,57 @@ func (p *Trie) String() string {
 		p.value != nil, strings.Join(children, ""))
 }
 
-func (p *Trie) find(number netip.Addr) bool {
+func (p *Trie[T]) contains(number netip.Addr) bool {
 	if !netContains(p.network, number) {
 		return false
 	}
+
 	if p.value != nil {
 		return true
 	}
+
 	if p.network.Bits() == 128 {
 		return false
 	}
 	bit := p.discriminatorBitFromIP(number)
 	child := p.children[bit]
 	if child != nil {
-		return child.find(number)
+		return child.contains(number)
 	}
+
 	return false
 }
 
-func (p *Trie) containingNetworks(addr netip.Addr) []*Entry {
-	var results []*Entry
+func (p *Trie[T]) find(number netip.Addr) *Entry[T] {
+	if !netContains(p.network, number) {
+		return nil
+	}
+
+	if p.network.Bits() == 128 {
+		return nil
+	}
+	bit := p.discriminatorBitFromIP(number)
+	child := p.children[bit]
+	if child != nil {
+		r := child.find(number)
+		if r != nil {
+			return r
+		}
+	}
+
+	if p.value != nil {
+		return &Entry[T]{p.network, p.value}
+	}
+	return nil
+}
+
+func (p *Trie[T]) containingNetworks(addr netip.Addr) []*Entry[T] {
+	var results []*Entry[T]
 	if !p.network.Contains(addr) {
 		return results
 	}
 	if p.value != nil {
-		results = []*Entry{{p.network, p.value}}
+		results = []*Entry[T]{{p.network, p.value}}
 	}
 	if p.network.Bits() == 128 {
 		return results
@@ -143,8 +175,8 @@ func (p *Trie) containingNetworks(addr netip.Addr) []*Entry {
 	return results
 }
 
-func (p *Trie) coveredNetworks(network netip.Prefix) []*Entry {
-	var results []*Entry
+func (p *Trie[T]) coveredNetworks(network netip.Prefix) []*Entry[T] {
+	var results []*Entry[T]
 	if network.Bits() <= p.network.Bits() && network.Contains(p.network.Addr()) {
 		for entry := range p.walkDepth() {
 			results = append(results, entry)
@@ -190,7 +222,7 @@ func netDivergence(net1 netip.Prefix, net2 netip.Prefix) netip.Prefix {
 	return pfx
 }
 
-func (p *Trie) insert(network netip.Prefix, value any) *Trie {
+func (p *Trie[T]) insert(network netip.Prefix, value *T) *Trie[T] {
 	if p.network == network {
 		p.value = value
 		return p
@@ -210,7 +242,8 @@ func (p *Trie) insert(network netip.Prefix, value any) *Trie {
 	// in the case that inserted network diverges on its path to existing child.
 	netdiv := netDivergence(existingChild.network, network)
 	if netdiv != existingChild.network {
-		pathPrefix := newSubTree(netdiv, nil)
+		var x *T = nil
+		pathPrefix := newSubTree(netdiv, x)
 		p.insertPrefix(bit, pathPrefix, existingChild)
 		// Update new child
 		existingChild = pathPrefix
@@ -218,12 +251,12 @@ func (p *Trie) insert(network netip.Prefix, value any) *Trie {
 	return existingChild.insert(network, value)
 }
 
-func (p *Trie) appendTrie(bit uint8, prefix *Trie) {
+func (p *Trie[T]) appendTrie(bit uint8, prefix *Trie[T]) {
 	p.children[bit] = prefix
 	prefix.parent = p
 }
 
-func (p *Trie) insertPrefix(bit uint8, pathPrefix, child *Trie) {
+func (p *Trie[T]) insertPrefix(bit uint8, pathPrefix, child *Trie[T]) {
 	// Set parent/child relationship between current trie and inserted pathPrefix
 	p.children[bit] = pathPrefix
 	pathPrefix.parent = p
@@ -234,7 +267,7 @@ func (p *Trie) insertPrefix(bit uint8, pathPrefix, child *Trie) {
 	child.parent = pathPrefix
 }
 
-func (p *Trie) remove(network netip.Prefix) any {
+func (p *Trie[T]) remove(network netip.Prefix) *T {
 	if p.value != nil && p.network == network {
 		entry := p.value
 		p.value = nil
@@ -253,7 +286,7 @@ func (p *Trie) remove(network netip.Prefix) any {
 	return nil
 }
 
-func (p *Trie) qualifiesForPathCompression() bool {
+func (p *Trie[T]) qualifiesForPathCompression() bool {
 	// Current prefix trie can be path compressed if it meets all following.
 	//		1. records no CIDR entry
 	//		2. has single or no child
@@ -261,14 +294,14 @@ func (p *Trie) qualifiesForPathCompression() bool {
 	return p.value == nil && p.childrenCount() <= 1 && p.parent != nil
 }
 
-func (p *Trie) compressPathIfPossible() {
+func (p *Trie[T]) compressPathIfPossible() {
 	if !p.qualifiesForPathCompression() {
 		// Does not qualify to be compressed
 		return
 	}
 
 	// Find lone child.
-	var loneChild *Trie
+	var loneChild *Trie[T]
 	for _, child := range p.children {
 		if child != nil {
 			loneChild = child
@@ -288,7 +321,7 @@ func (p *Trie) compressPathIfPossible() {
 	parent.compressPathIfPossible()
 }
 
-func (p *Trie) childrenCount() int {
+func (p *Trie[T]) childrenCount() int {
 	count := 0
 	for _, child := range p.children {
 		if child != nil {
@@ -298,7 +331,7 @@ func (p *Trie) childrenCount() int {
 	return count
 }
 
-func (p *Trie) discriminatorBitFromIP(addr netip.Addr) uint8 {
+func (p *Trie[T]) discriminatorBitFromIP(addr netip.Addr) uint8 {
 	// This is a safe uint boxing of int since we should never attempt to get
 	// target bit at a negative position.
 	pos := p.network.Bits()
@@ -309,7 +342,7 @@ func (p *Trie) discriminatorBitFromIP(addr netip.Addr) uint8 {
 	return uint8(a128.lo >> (63 - (pos - 64)) & 1)
 }
 
-func (p *Trie) level() int {
+func (p *Trie[T]) level() int {
 	if p.parent == nil {
 		return 0
 	}
@@ -317,13 +350,13 @@ func (p *Trie) level() int {
 }
 
 // walkDepth walks the trie in depth order, for unit testing.
-func (p *Trie) walkDepth() <-chan *Entry {
-	entries := make(chan *Entry)
+func (p *Trie[T]) walkDepth() <-chan *Entry[T] {
+	entries := make(chan *Entry[T])
 	go func() {
 		if p.value != nil {
-			entries <- &Entry{p.network, p.value}
+			entries <- &Entry[T]{p.network, p.value}
 		}
-		childEntriesList := []<-chan *Entry{}
+		childEntriesList := []<-chan *Entry[T]{}
 		for _, trie := range p.children {
 			if trie == nil {
 				continue
@@ -343,19 +376,19 @@ func (p *Trie) walkDepth() <-chan *Entry {
 // TrieLoader can be used to improve the performance of bulk inserts to a Trie. It caches the node of the
 // last insert in the tree, using it as the starting point to start searching for the location of the next insert. This
 // is highly beneficial when the addresses are pre-sorted.
-type TrieLoader struct {
-	trie       *Trie
-	lastInsert *Trie
+type TrieLoader[T any] struct {
+	trie       *Trie[T]
+	lastInsert *Trie[T]
 }
 
-func NewTrieLoader(trie *Trie) *TrieLoader {
-	return &TrieLoader{
+func NewTrieLoader[T any](trie *Trie[T]) *TrieLoader[T] {
+	return &TrieLoader[T]{
 		trie:       trie,
 		lastInsert: trie,
 	}
 }
 
-func (ptl *TrieLoader) Insert(pfx netip.Prefix, v any) {
+func (ptl *TrieLoader[T]) Insert(pfx netip.Prefix, v *T) {
 	pfx = normalizePrefix(pfx)
 
 	diff := addr128(ptl.lastInsert.network.Addr()).xor(addr128(pfx.Addr()))

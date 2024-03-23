@@ -54,7 +54,7 @@ func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 	}
 	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
-	trie := iptrie.NewTrie()
+	trie := iptrie.NewTrie[struct{}]()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
 	}
@@ -75,8 +75,12 @@ func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 			t.Errorf("netip addr convert fail")
 			continue
 		}
-		got := trie.Contains(addr)
-		assert.Equal(t, expected, got)
+		got := trie.Find(addr)
+		var gotvalue bool
+		if got != nil {
+			gotvalue = true
+		}
+		assert.Equal(t, expected, gotvalue)
 	}
 }
 
@@ -93,7 +97,7 @@ func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGen
 	}
 	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
-	trie := iptrie.NewTrie()
+	trie := iptrie.NewTrie[struct{}]()
 
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
@@ -151,7 +155,7 @@ func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkG
 	}
 	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
-	trie := iptrie.NewTrie()
+	trie := iptrie.NewTrie[struct{}]()
 
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
@@ -214,7 +218,7 @@ func BenchmarkPCTrieHitIPv4UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieHitIPv4UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("52.95.110.1"), iptrie.NewTrie())
+	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("52.95.110.1"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieHitIPv6UsingAWSRanges(b *testing.B) {
@@ -222,7 +226,7 @@ func BenchmarkPCTrieHitIPv6UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieHitIPv6UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("2620:107:300f::36b7:ff81"), iptrie.NewTrie())
+	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("2620:107:300f::36b7:ff81"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieMissIPv4UsingAWSRanges(b *testing.B) {
@@ -230,7 +234,7 @@ func BenchmarkPCTrieMissIPv4UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieMissIPv4UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("123.123.123.123"), iptrie.NewTrie())
+	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("123.123.123.123"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieHMissIPv6UsingAWSRanges(b *testing.B) {
@@ -238,7 +242,7 @@ func BenchmarkPCTrieHMissIPv6UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieHMissIPv6UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("2620::ffff"), iptrie.NewTrie())
+	benchmarkTrieContainsUsingAWSRanges(b, netip.MustParseAddr("2620::ffff"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieHitContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
@@ -246,7 +250,7 @@ func BenchmarkPCTrieHitContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieHitContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("52.95.110.1"), iptrie.NewTrie())
+	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("52.95.110.1"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieHitContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
@@ -254,7 +258,7 @@ func BenchmarkPCTrieHitContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieHitContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("2620:107:300f::36b7:ff81"), iptrie.NewTrie())
+	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("2620:107:300f::36b7:ff81"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieMissContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
@@ -262,7 +266,7 @@ func BenchmarkPCTrieMissContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieMissContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("123.123.123.123"), iptrie.NewTrie())
+	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("123.123.123.123"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkPCTrieHMissContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
@@ -270,7 +274,7 @@ func BenchmarkPCTrieHMissContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
 }
 
 func BenchmarkTrieHMissContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
-	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("2620::ffff"), iptrie.NewTrie())
+	benchmarkTrieContainingNetworksUsingAWSRanges(b, netip.MustParseAddr("2620::ffff"), iptrie.NewTrie[struct{}]())
 }
 
 func BenchmarkNewPathprefixTriev4(b *testing.B) {
@@ -279,6 +283,38 @@ func BenchmarkNewPathprefixTriev4(b *testing.B) {
 
 func BenchmarkNewPathprefixTriev6(b *testing.B) {
 	benchmarkNewPathprefixTrie(b, "8000::/24")
+}
+
+func BenchmarkPCTLoad(b *testing.B) {
+	ranger := NewPCTrieRanger()
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		for _, prefix := range awsRanges.Prefixes {
+			_, network, _ := net.ParseCIDR(prefix.IPPrefix)
+			_ = ranger.Insert(NewBasicRangerEntry(*network))
+		}
+		for _, prefix := range awsRanges.IPv6Prefixes {
+			_, network, _ := net.ParseCIDR(prefix.IPPrefix)
+			_ = ranger.Insert(NewBasicRangerEntry(*network))
+		}
+	}
+}
+
+func BenchmarkTrieLoad(b *testing.B) {
+	trie := iptrie.NewTrie[struct{}]()
+	b.ResetTimer()
+
+	for n := 0; n < b.N; n++ {
+		for _, prefix := range awsRanges.Prefixes {
+			network, _ := netip.ParsePrefix(prefix.IPPrefix)
+			trie.Insert(network, &struct{}{})
+		}
+		for _, prefix := range awsRanges.IPv6Prefixes {
+			network, _ := netip.ParsePrefix(prefix.IPPrefix)
+			trie.Insert(network, &struct{}{})
+		}
+	}
 }
 
 func benchmarkContainsUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
@@ -308,14 +344,21 @@ func benchmarkNewPathprefixTrie(b *testing.B, net1 string) {
 	}
 }
 
-func benchmarkTrieContainsUsingAWSRanges(tb testing.TB, nn netip.Addr, trie *iptrie.Trie) {
+func benchmarkTrieContainsUsingAWSRanges(tb testing.TB, nn netip.Addr, trie *iptrie.Trie[struct{}]) {
 	configureTrieWithAWSRanges(tb, trie)
 	for n := 0; n < tb.(*testing.B).N; n++ {
 		trie.Contains(nn)
 	}
 }
 
-func benchmarkTrieContainingNetworksUsingAWSRanges(tb testing.TB, nn netip.Addr, trie *iptrie.Trie) {
+func benchmarkTrieFindUsingAWSRanges(tb testing.TB, nn netip.Addr, trie *iptrie.Trie[struct{}]) {
+	configureTrieWithAWSRanges(tb, trie)
+	for n := 0; n < tb.(*testing.B).N; n++ {
+		trie.Find(nn)
+	}
+}
+
+func benchmarkTrieContainingNetworksUsingAWSRanges(tb testing.TB, nn netip.Addr, trie *iptrie.Trie[struct{}]) {
 	configureTrieWithAWSRanges(tb, trie)
 	for n := 0; n < tb.(*testing.B).N; n++ {
 		trie.ContainingNetworks(nn)
@@ -404,16 +447,16 @@ func configureRangerWithAWSRanges(tb testing.TB, ranger Ranger) {
 	}
 }
 
-func configureTrieWithAWSRanges(tb testing.TB, trie *iptrie.Trie) {
+func configureTrieWithAWSRanges(tb testing.TB, trie *iptrie.Trie[struct{}]) {
 	for _, prefix := range awsRanges.Prefixes {
 		network, err := netip.ParsePrefix(prefix.IPPrefix)
 		assert.NoError(tb, err)
-		trie.Insert(network, struct{}{})
+		trie.Insert(network, &struct{}{})
 	}
 	for _, prefix := range awsRanges.IPv6Prefixes {
 		network, err := netip.ParsePrefix(prefix.IPPrefix)
 		assert.NoError(tb, err)
-		trie.Insert(network, struct{}{})
+		trie.Insert(network, &struct{}{})
 	}
 }
 
