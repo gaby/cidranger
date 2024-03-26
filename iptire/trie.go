@@ -139,6 +139,9 @@ func (p *Trie[T]) find(number netip.Addr) *Entry[T] {
 	}
 
 	if p.network.Bits() == 128 {
+		if p.value != nil {
+			return &Entry[T]{p.network, p.value}
+		}
 		return nil
 	}
 	bit := p.discriminatorBitFromIP(number)

@@ -63,3 +63,46 @@ func TestCoveredNetworks(t *testing.T) {
 		}
 	}
 }
+
+func TestContains(t *testing.T) {
+	trie := NewTrie[[]string]()
+	n1 := netip.MustParsePrefix("8.8.8.130/32")
+	trie.Insert(n1, &[]string{"ABC", "DEF"})
+
+	e1 := trie.Contains(netip.MustParseAddr("8.8.8.130"))
+	if !e1 {
+		t.Errorf("should find")
+	}
+}
+
+func TestFind2(t *testing.T) {
+	trie := NewTrie[[]string]()
+	n1 := netip.MustParsePrefix("8.8.8.130/32")
+	trie.Insert(n1, &[]string{"ABC", "DEF"})
+
+	e1 := trie.Find(netip.MustParseAddr("8.8.8.130"))
+	if e1 == nil {
+		t.Errorf("shouldn't be nil")
+	}
+
+	for _, a := range *e1.Value {
+		log.Printf("%+v\n", a)
+	}
+}
+
+func TestContainNetwork2(t *testing.T) {
+	trie := NewTrie[[]string]()
+	n1 := netip.MustParsePrefix("8.8.8.130/32")
+	trie.Insert(n1, &[]string{"ABC", "DEF"})
+
+	ee := trie.ContainingNetworks(netip.MustParseAddr("8.8.8.130"))
+	if ee == nil {
+		t.Errorf("should find")
+	}
+
+	for _, e := range ee {
+		for _, a := range *e.Value {
+			log.Printf("%+v\n", a)
+		}
+	}
+}
